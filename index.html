@@ -1,0 +1,642 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Simulador de promedio</title>
+<style>
+  :root{
+    --bg:#17181a;
+    --surface:#1f2124;
+    --surface-2:#282b2f;
+    --surface-3:#2f3237;
+    --border:#3a3d42;
+    --border-soft:#2c2f34;
+    --text:#e7e8ea;
+    --muted:#95999f;
+    --muted-2:#6d7278;
+    --accent:#8fae95;
+    --accent-strong:#a9c9ab;
+    --accent-bg:rgba(143,174,149,.14);
+    --warn:#d1a65c;
+    --warn-bg:rgba(209,166,92,.14);
+    --bad:#c97b72;
+    --bad-bg:rgba(201,123,114,.12);
+    --radius:16px;
+    --radius-sm:10px;
+    --radius-pill:999px;
+  }
+  *{box-sizing:border-box;}
+  body{
+    margin:0;
+    background:var(--bg);
+    background-image:radial-gradient(circle at 20% -10%, #202327 0%, var(--bg) 45%);
+    color:var(--text);
+    font-family:"Segoe UI", system-ui, -apple-system, sans-serif;
+    line-height:1.5;
+    font-size:15px;
+  }
+  .container{max-width:1180px;margin:0 auto;padding:2rem 1.3rem 4rem;}
+  header{display:flex;justify-content:space-between;align-items:flex-end;flex-wrap:wrap;gap:.8rem;margin-bottom:1.6rem;}
+  header h1{font-size:1.4rem;margin:0;font-weight:650;letter-spacing:-.01em;}
+  header p{margin:.2rem 0 0;color:var(--muted);font-size:.88rem;}
+
+  /* ---------- summary ---------- */
+  .summary{display:grid;grid-template-columns:1fr 1fr;gap:1rem;margin-bottom:1.4rem;}
+  @media (max-width:680px){ .summary{grid-template-columns:1fr;} }
+  .stat-card{background:var(--surface);border:1px solid var(--border-soft);border-radius:var(--radius);padding:1.3rem 1.5rem;}
+  .stat-card .label{font-size:.74rem;text-transform:uppercase;letter-spacing:.06em;color:var(--muted);margin-bottom:.3rem;}
+  .stat-card .value{font-size:2.3rem;font-weight:700;color:var(--accent-strong);font-variant-numeric:tabular-nums;}
+  .bar-track{position:relative;height:10px;background:var(--surface-3);border-radius:var(--radius-pill);margin-top:.8rem;overflow:hidden;}
+  .bar-fill{height:100%;border-radius:var(--radius-pill);background:var(--accent);transition:width .25s ease;}
+  .bar-scale{display:flex;justify-content:space-between;font-size:.66rem;color:var(--muted-2);margin-top:.3rem;}
+  .delta-bar{grid-column:1 / -1;background:var(--surface);border:1px solid var(--border-soft);border-radius:var(--radius);padding:.9rem 1.4rem;font-size:.88rem;color:var(--muted);}
+  .delta-bar strong{color:var(--accent-strong);}
+
+  /* ---------- blocks ---------- */
+  .block{background:var(--surface);border:1px solid var(--border-soft);border-radius:var(--radius);padding:1.3rem 1.5rem 1.5rem;margin-bottom:1.4rem;}
+  .block h2{font-size:.95rem;margin:0 0 .9rem;color:var(--text);font-weight:650;display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:.4rem;}
+  .block h2 small{color:var(--muted);font-weight:400;font-size:.76rem;}
+
+  /* ---------- closed semesters ---------- */
+  .sem-folder{border:1px solid var(--border-soft);border-radius:var(--radius-sm);margin-bottom:.9rem;overflow:hidden;}
+  .sem-header{display:flex;justify-content:space-between;align-items:center;background:var(--surface-2);padding:.55rem 1rem;gap:.8rem;flex-wrap:wrap;}
+  .sem-title{font-size:.82rem;font-weight:650;color:var(--text);}
+  .sem-header-actions{display:flex;align-items:center;gap:.6rem;flex-wrap:wrap;}
+  .sem-avg{font-size:.76rem;color:var(--accent-strong);font-variant-numeric:tabular-nums;}
+  .sem-btn{border:1px solid var(--border);background:var(--surface-3);color:var(--muted);border-radius:var(--radius-pill);padding:.2rem .65rem;font-size:.66rem;cursor:pointer;white-space:nowrap;}
+  .sem-btn:hover{border-color:var(--accent);color:var(--accent-strong);}
+  .sem-items{display:flex;flex-wrap:wrap;gap:.5rem;padding:.8rem 1rem;}
+  .closed-item{
+    display:flex;align-items:center;gap:.4rem;
+    background:var(--surface-2);border:1px solid var(--border-soft);
+    border-radius:var(--radius-pill);padding:.3rem .3rem .3rem .75rem;
+  }
+  .closed-item.promoted{border-color:var(--accent);background:var(--accent-bg);}
+  .closed-item .ci-name{
+    background:transparent;border:none;color:var(--text);font-size:.8rem;
+    width:auto;min-width:40px;max-width:150px;
+  }
+  .closed-item.promoted .ci-name{color:var(--accent-strong);font-weight:600;}
+  .closed-item .ci-name:focus{outline:none;}
+  .closed-item .ci-grade{
+    width:2rem;padding:.2rem 0;border-radius:var(--radius-pill);border:1px solid var(--border);
+    background:var(--surface-3);color:var(--text);font-size:.85rem;text-align:center;font-variant-numeric:tabular-nums;
+  }
+  .closed-item .ci-grade:focus{outline:none;border-color:var(--accent);}
+  .closed-item .ci-grade[readonly]{background:transparent;border-color:transparent;color:var(--accent-strong);font-weight:700;}
+  .closed-item button{
+    border:none;background:var(--surface-3);color:var(--bad);cursor:pointer;
+    width:1.4rem;height:1.4rem;border-radius:50%;font-size:.7rem;line-height:1;flex:none;
+  }
+  .closed-item.promoted button.ci-demote{
+    width:auto;height:auto;border-radius:var(--radius-pill);padding:.22rem .6rem;
+    background:transparent;border:1px solid var(--accent);color:var(--accent-strong);font-size:.65rem;white-space:nowrap;
+  }
+  .closed-item.promoted button.ci-demote:hover{background:var(--accent);color:#13211a;}
+
+  .pill-btn{display:inline-flex;align-items:center;gap:.35rem;border:1px solid var(--border);background:var(--surface-2);color:var(--accent-strong);border-radius:var(--radius-pill);padding:.42rem .95rem;font-size:.82rem;cursor:pointer;}
+  .pill-btn:hover{background:var(--surface-3);}
+  .pill-btn.ghost{color:var(--muted);}
+  .btn-row{display:flex;gap:.6rem;margin-top:.3rem;flex-wrap:wrap;}
+
+  /* ---------- table ---------- */
+  .table-wrap{overflow-x:auto;border-radius:var(--radius);}
+  table{border-collapse:separate;border-spacing:0;width:100%;min-width:1140px;}
+  thead th{position:sticky;top:0;background:var(--surface-2);font-size:.68rem;text-transform:uppercase;letter-spacing:.04em;color:var(--muted);font-weight:600;padding:.7rem .6rem;text-align:center;border-bottom:1px solid var(--border);white-space:nowrap;}
+  thead th:first-child{text-align:left;position:sticky;left:0;z-index:3;}
+  tbody td{padding:.85rem .6rem;text-align:center;border-bottom:1px solid var(--border-soft);vertical-align:middle;}
+  tbody td:first-child{text-align:left;position:sticky;left:0;background:var(--surface);z-index:1;min-width:220px;}
+  tbody tr:hover td{background:var(--surface-2);}
+  tbody tr:hover td:first-child{background:var(--surface-2);}
+  .group-row td{background:var(--surface-3)!important;color:var(--muted);font-size:.72rem;text-transform:uppercase;letter-spacing:.06em;font-weight:600;padding:.4rem .6rem;position:static;}
+
+  .materia-cell{display:flex;align-items:flex-start;gap:.5rem;}
+  .materia-cell input.row-name{background:transparent;border:none;color:var(--text);font-size:.86rem;font-weight:600;width:100%;min-width:140px;}
+  .materia-cell input.row-name:focus{outline:none;border-bottom:1px solid var(--accent);}
+  .icon-btn{border:none;background:none;color:var(--muted-2);cursor:pointer;font-size:.85rem;width:1.5rem;height:1.5rem;border-radius:50%;flex:none;}
+  .icon-btn:hover{background:var(--surface-3);color:var(--bad);}
+  .row-meta-line{display:flex;align-items:center;gap:.5rem;margin-top:.2rem;flex-wrap:wrap;}
+  .mode-toggle{font-size:.64rem;color:var(--muted-2);display:flex;align-items:center;gap:.25rem;cursor:pointer;user-select:none;white-space:nowrap;}
+  .mode-toggle input{accent-color:var(--accent);width:.7rem;height:.7rem;}
+  .sem-field{font-size:.64rem;color:var(--muted-2);display:flex;align-items:center;gap:.25rem;white-space:nowrap;}
+  .sem-field input{width:2rem;background:var(--surface-2);border:1px solid var(--border-soft);border-radius:5px;color:var(--text);font-size:.68rem;text-align:center;}
+  .promote-btn{display:inline-flex;align-items:center;gap:.3rem;margin-top:.35rem;border:1px solid var(--border);background:transparent;color:var(--muted);border-radius:var(--radius-pill);padding:.22rem .6rem;font-size:.63rem;cursor:pointer;white-space:nowrap;}
+  .promote-btn:not(:disabled):hover{border-color:var(--accent);color:var(--accent-strong);}
+  .promote-btn:disabled{opacity:.35;cursor:not-allowed;}
+
+  .cellpair{display:flex;flex-direction:column;gap:.25rem;align-items:center;}
+  .cellpair input{width:48px;padding:.3rem 0;border-radius:var(--radius-pill);border:1px solid var(--border);background:var(--surface-2);color:var(--text);font-size:.78rem;text-align:center;font-variant-numeric:tabular-nums;}
+  .cellpair input.peso{width:38px;color:var(--muted);font-size:.72rem;background:var(--surface);}
+  .cellpair input:focus{outline:none;border-color:var(--accent);}
+  .cellpair input:disabled{opacity:.3;}
+  .cellpair input.pending{border-color:var(--warn);background:var(--warn-bg);color:var(--warn);font-weight:600;}
+  .cellpair input.pending::placeholder{color:var(--warn);opacity:.6;}
+
+  .solo-input{width:58px;padding:.35rem 0;border-radius:var(--radius-pill);border:1px solid var(--border);background:var(--surface-2);color:var(--text);font-size:.82rem;text-align:center;font-variant-numeric:tabular-nums;}
+  .solo-input:focus{outline:none;border-color:var(--accent);}
+  .solo-input:disabled{opacity:.3;}
+  .solo-input.final{width:64px;font-weight:700;}
+  .solo-input.pending{border-color:var(--warn);background:var(--warn-bg);color:var(--warn);}
+
+  .out-total{font-variant-numeric:tabular-nums;color:var(--text);font-size:.85rem;}
+  .nota-badge{display:inline-flex;align-items:center;justify-content:center;width:2.1rem;height:2.1rem;border-radius:50%;font-weight:700;font-size:1rem;background:var(--surface-3);color:var(--text);}
+  .nota-badge.n5,.nota-badge.n4{background:var(--accent-bg);color:var(--accent-strong);}
+  .nota-badge.n3{background:var(--warn-bg);color:var(--warn);}
+  .nota-badge.n2,.nota-badge.n1{background:var(--bad-bg);color:var(--bad);}
+  .state-label{display:block;font-size:.6rem;color:var(--muted-2);margin-top:.25rem;text-transform:uppercase;letter-spacing:.03em;}
+
+  .metas{display:flex;gap:.5rem;justify-content:center;}
+  .meta-chip{width:4.6rem;height:2.5rem;border-radius:var(--radius-sm);border:1px solid var(--border);background:var(--surface-2);color:var(--muted);font-size:.64rem;display:flex;flex-direction:column;align-items:center;justify-content:center;cursor:pointer;line-height:1.25;gap:.1rem;padding:0 .2rem;}
+  .meta-chip b{font-size:.72rem;font-weight:700;color:var(--text);font-variant-numeric:tabular-nums;white-space:nowrap;}
+  .meta-chip.achievable{border-color:var(--accent);color:var(--accent-strong);}
+  .meta-chip.achievable b{color:var(--accent-strong);}
+  .meta-chip.unreachable{opacity:.4;border-style:dashed;cursor:default;}
+  .meta-chip.secured{border-color:var(--accent);background:var(--accent-bg);color:var(--accent-strong);}
+  .meta-chip.active{background:var(--accent);color:#13211a;border-color:var(--accent);}
+  .meta-chip.active b{color:#13211a;}
+  .meta-chip:disabled, .meta-chip.na{opacity:.25;cursor:default;}
+
+  .legend{font-size:.76rem;color:var(--muted-2);margin-top:.9rem;display:flex;gap:1.3rem;flex-wrap:wrap;}
+  .legend span{display:inline-flex;align-items:center;gap:.4rem;}
+  .legend i{width:9px;height:9px;border-radius:3px;display:inline-block;}
+  i.leg-pend{background:var(--warn);}
+  i.leg-fix{background:var(--surface-3);border:1px solid var(--border);}
+  i.leg-ok{background:var(--accent);}
+
+  footer{text-align:center;color:var(--muted-2);font-size:.76rem;margin-top:1.6rem;}
+</style>
+</head>
+<body>
+<div class="container">
+
+  <header>
+    <div>
+      <h1>Simulador de promedio</h1>
+      <p>Cargá tus proyecciones y mirá el efecto al instante. Tocá un número en "Metas" para aplicarlo directo.</p>
+    </div>
+  </header>
+
+  <section class="summary">
+    <div class="stat-card">
+      <div class="label">Promedio actual</div>
+      <div class="value"><span id="actualAvg">0,0000</span></div>
+      <div class="bar-track"><div class="bar-fill" id="actualBar" style="width:0%"></div></div>
+      <div class="bar-scale"><span>1</span><span>2</span><span>3</span><span>4</span><span>5</span></div>
+    </div>
+    <div class="stat-card">
+      <div class="label">Promedio proyectado</div>
+      <div class="value"><span id="proyAvg">0,0000</span></div>
+      <div class="bar-track"><div class="bar-fill" id="proyBar" style="width:0%"></div></div>
+      <div class="bar-scale"><span>1</span><span>2</span><span>3</span><span>4</span><span>5</span></div>
+    </div>
+    <div class="delta-bar" id="deltaText"></div>
+  </section>
+
+  <section class="block">
+    <h2>Materias cerradas <small>agrupadas por semestre · tocá "subir a cerradas" en una materia en curso para moverla acá</small></h2>
+    <div id="closedSemesters"></div>
+    <div class="btn-row">
+      <button class="pill-btn ghost" id="addBase">+ agregar semestre nuevo</button>
+    </div>
+  </section>
+
+  <section class="block">
+    <h2>Materias en curso <small>tocá un número de "Metas" para probar esa nota</small></h2>
+    <div class="table-wrap">
+      <table id="matTable">
+        <thead>
+          <tr>
+            <th>Materia</th>
+            <th>1ª Parcial</th>
+            <th>2ª Parcial</th>
+            <th>T. Práctico</th>
+            <th>Laboratorio</th>
+            <th>Acumulado</th>
+            <th>Final (/60)</th>
+            <th>Total</th>
+            <th>Nota</th>
+            <th>Metas</th>
+          </tr>
+        </thead>
+        <tbody id="rows"></tbody>
+      </table>
+    </div>
+    <div class="btn-row">
+      <button class="pill-btn" id="addRow">+ agregar materia</button>
+    </div>
+    <div class="legend">
+      <span><i class="leg-pend"></i> pendiente / proyección</span>
+      <span><i class="leg-fix"></i> ya rendido o no aplica</span>
+      <span><i class="leg-ok"></i> nota objetivo alcanzable</span>
+    </div>
+  </section>
+
+  <footer>Archivo local — no se publica en ningún lado. El examen final siempre pesa 60/100.</footer>
+</div>
+
+<template id="tpl-row">
+  <tr data-mode="auto">
+    <td>
+      <div class="materia-cell">
+        <button class="icon-btn row-remove" title="Eliminar">✕</button>
+        <div style="flex:1;min-width:0;">
+          <input class="row-name" type="text" value="Nueva materia">
+          <div class="row-meta-line">
+            <label class="mode-toggle"><input type="checkbox" data-f="modeToggle"> acum. manual</label>
+            <label class="sem-field">sem. <input type="number" data-f="semester" value="4" min="1" max="12"></label>
+          </div>
+          <button class="promote-btn" type="button" data-f="promoteBtn" disabled>Subir a cerradas</button>
+        </div>
+      </div>
+    </td>
+    <td><div class="cellpair"><input class="peso" type="number" data-f="p1" value="15"><input type="number" data-f="n1" placeholder="%"></div></td>
+    <td><div class="cellpair"><input class="peso" type="number" data-f="p2" value="20"><input type="number" data-f="n2" placeholder="%"></div></td>
+    <td><div class="cellpair"><input class="peso" type="number" data-f="ptp" value="5"><input type="number" data-f="ntp" placeholder="%"></div></td>
+    <td><div class="cellpair"><input class="peso" type="number" data-f="plab" value="0"><input type="number" data-f="nlab" placeholder="%"></div></td>
+    <td><input class="solo-input" type="number" data-f="acumulado" disabled></td>
+    <td><input class="solo-input final" type="number" data-f="nfinal" placeholder="%"></td>
+    <td><span class="out-total" data-f="total-out">0,00</span></td>
+    <td>
+      <span class="nota-badge" data-f="nota-out">—</span>
+      <span class="state-label" data-f="badge">—</span>
+    </td>
+    <td>
+      <div class="metas">
+        <button class="meta-chip" data-nota="2"><span>2</span><b data-f="m2">—</b></button>
+        <button class="meta-chip" data-nota="3"><span>3</span><b data-f="m3">—</b></button>
+        <button class="meta-chip" data-nota="4"><span>4</span><b data-f="m4">—</b></button>
+        <button class="meta-chip" data-nota="5"><span>5</span><b data-f="m5">—</b></button>
+      </div>
+    </td>
+  </tr>
+</template>
+
+<script>
+document.addEventListener('DOMContentLoaded', function(){
+
+  const FINAL_WEIGHT = 60; // el final siempre pesa 60/100, fijo
+
+  // En Chrome/Firefox, si un <input type="number"> queda enfocado y después
+  // usás la rueda del mouse para scrollear la página, el navegador le suma o
+  // resta al valor en vez de dejar scrollear. Esto desenfoca cualquier input
+  // numérico apenas empieza un scroll con la rueda, para que no cambie solo.
+  document.addEventListener('wheel', function(e){
+    const a = document.activeElement;
+    if (a && a.tagName === 'INPUT' && a.type === 'number'){
+      e.preventDefault(); // frena el ajuste del valor en este mismo tick
+      a.blur();            // y lo desenfoca para que el resto del scroll sea normal
+    }
+  }, { passive:false });
+
+  // ---------- helpers ----------
+  function num(el){ if (!el) return 0; const v = parseFloat(el.value); return isNaN(v) ? 0 : v; }
+  function filled(el){ return el && el.value !== '' && el.value !== null && !isNaN(parseFloat(el.value)); }
+  function fmt(n, dec){ dec = dec===undefined?2:dec; return n.toLocaleString('es-PY', {minimumFractionDigits:dec, maximumFractionDigits:dec}); }
+  function notaFromTotal(T){ if (T>=94) return 5; if (T>=81) return 4; if (T>=70) return 3; if (T>=60) return 2; return 1; }
+  const THRESH = {2:60, 3:70, 4:81, 5:94};
+  function semLabel(n){
+    n = parseInt(n,10) || 0;
+    const names = {1:'1er', 2:'2do', 3:'3er', 4:'4to'};
+    return (names[n] || (n+'to')) + ' semestre';
+  }
+
+  // ======================================================
+  // MATERIAS CERRADAS (agrupadas por semestre)
+  // ======================================================
+  const closedSemesters = document.getElementById('closedSemesters');
+  const semFolders = {}; // sem(string) -> {el, itemsEl, avgEl}
+
+  function ensureSemFolder(sem){
+    sem = String(sem);
+    if (semFolders[sem]) return semFolders[sem];
+    const el = document.createElement('div');
+    el.className = 'sem-folder';
+    el.dataset.sem = sem;
+    el.innerHTML =
+      '<div class="sem-header">'+
+        '<span class="sem-title">'+semLabel(sem)+'</span>'+
+        '<div class="sem-header-actions">'+
+          '<span class="sem-avg">—</span>'+
+          '<button class="sem-btn sem-refresh" type="button" title="Recalcular este semestre">Actualizar</button>'+
+          '<button class="sem-btn sem-add" type="button" title="Agregar materia a este semestre">+ Materia</button>'+
+        '</div>'+
+      '</div>'+
+      '<div class="sem-items"></div>';
+    // insertar en orden numérico
+    let ref = null;
+    for (const child of closedSemesters.children){
+      if (parseInt(child.dataset.sem,10) > parseInt(sem,10)){ ref = child; break; }
+    }
+    closedSemesters.insertBefore(el, ref);
+    const rec = { el, itemsEl: el.querySelector('.sem-items'), avgEl: el.querySelector('.sem-avg') };
+    semFolders[sem] = rec;
+    el.querySelector('.sem-refresh').addEventListener('click', recalcAll);
+    el.querySelector('.sem-add').addEventListener('click', function(){
+      addPlainClosedItem(sem, 'Nueva materia', 5);
+      recalcAll();
+    });
+    return rec;
+  }
+
+  function addPlainClosedItem(sem, name, value){
+    const rec = ensureSemFolder(sem);
+    const item = document.createElement('div');
+    item.className = 'closed-item';
+    item.innerHTML = '<input class="ci-name" type="text" value="'+name+'">'+
+      '<input class="ci-grade" type="number" min="1" max="5" step="1" value="'+value+'">'+
+      '<button title="Eliminar">✕</button>';
+    item.querySelector('button').addEventListener('click', function(){ item.remove(); recalcAll(); });
+    rec.itemsEl.appendChild(item);
+    return item;
+  }
+
+  function addPromotedClosedItem(tr, sem, name, grade){
+    const rec = ensureSemFolder(sem);
+    const item = document.createElement('div');
+    item.className = 'closed-item promoted';
+    item.innerHTML = '<span class="ci-name" style="padding:.1rem 0;">'+name+'</span>'+
+      '<input class="ci-grade" type="number" value="'+grade+'" readonly>'+
+      '<button class="ci-demote" type="button">Volver a en curso</button>';
+    item.querySelector('.ci-demote').addEventListener('click', function(){ demoteRow(tr, item); });
+    rec.itemsEl.appendChild(item);
+    return item;
+  }
+
+  // ======================================================
+  // MATERIAS EN CURSO (tabla)
+  // ======================================================
+  const rowsBody = document.getElementById('rows');
+  const tpl = document.getElementById('tpl-row');
+  const semGroupHeaders = {}; // sem -> <tr class="group-row">
+
+  function getGroupHeader(sem){
+    sem = String(sem);
+    if (semGroupHeaders[sem]) return semGroupHeaders[sem];
+    const tr = document.createElement('tr');
+    tr.className = 'group-row';
+    tr.dataset.sem = sem;
+    tr.innerHTML = '<td colspan="10">'+semLabel(sem)+'</td>';
+    let ref = null;
+    for (const child of rowsBody.children){
+      if (child.classList.contains('group-row') && parseInt(child.dataset.sem,10) > parseInt(sem,10)){ ref = child; break; }
+    }
+    rowsBody.insertBefore(tr, ref);
+    semGroupHeaders[sem] = tr;
+    return tr;
+  }
+
+  function insertRowInSemesterGroup(tr, sem){
+    const header = getGroupHeader(sem);
+    let last = header;
+    let node = header.nextElementSibling;
+    while (node && !node.classList.contains('group-row')){ last = node; node = node.nextElementSibling; }
+    last.insertAdjacentElement('afterend', tr);
+  }
+
+  function makeRow(data){
+    const tr = tpl.content.firstElementChild.cloneNode(true);
+    tr.dataset.semester = String(data.semester || 4);
+    tr.querySelector('.row-name').value = data.name;
+    tr.querySelector('[data-f="semester"]').value = tr.dataset.semester;
+
+    const set = (f,v)=>{ const el=tr.querySelector('[data-f="'+f+'"]'); if(el && v!==undefined && v!==null) el.value=v; };
+    set('p1',data.p1); set('n1',data.n1);
+    set('p2',data.p2); set('n2',data.n2);
+    set('ptp',data.ptp); set('ntp',data.ntp);
+    set('plab',data.plab); set('nlab',data.nlab);
+    set('nfinal',data.nfinal);
+
+    if (data.manual){
+      tr.dataset.mode = 'manual';
+      tr.querySelector('[data-f="modeToggle"]').checked = true;
+      set('acumulado', data.acumulado);
+    }
+
+    tr.querySelector('.row-remove').addEventListener('click', function(){ tr.remove(); recalcAll(); });
+    tr.querySelector('[data-f="modeToggle"]').addEventListener('change', function(e){
+      tr.dataset.mode = e.target.checked ? 'manual' : 'auto';
+      recalcAll();
+    });
+    tr.querySelector('[data-f="semester"]').addEventListener('change', function(e){
+      const newSem = e.target.value || '4';
+      tr.dataset.semester = String(newSem);
+      insertRowInSemesterGroup(tr, newSem);
+      recalcAll();
+    });
+    tr.querySelector('[data-f="promoteBtn"]').addEventListener('click', function(){ promoteRow(tr); });
+    tr.querySelectorAll('.meta-chip').forEach(btn=>{
+      btn.addEventListener('click', function(){
+        if (btn.disabled || btn.classList.contains('unreachable') || btn.classList.contains('na')) return;
+        const needed = parseFloat(btn.dataset.needed);
+        if (isNaN(needed)) return;
+        const nfEl = tr.querySelector('[data-f="nfinal"]');
+        nfEl.value = Math.max(0, Math.min(100, needed)).toFixed(4);
+        recalcAll();
+      });
+    });
+    tr.addEventListener('input', recalcAll);
+
+    insertRowInSemesterGroup(tr, tr.dataset.semester);
+    return tr;
+  }
+
+  function promoteRow(tr){
+    const res = recalcRow(tr);
+    if (!res.completed) return;
+    const sem = tr.dataset.semester;
+    const name = tr.querySelector('.row-name').value;
+    tr.remove();
+    addPromotedClosedItem(tr, sem, name, res.nota);
+    recalcAll();
+  }
+
+  function demoteRow(tr, itemEl){
+    itemEl.remove();
+    insertRowInSemesterGroup(tr, tr.dataset.semester);
+    recalcAll();
+  }
+
+  // ---------- datos iniciales ----------
+  // materias cerradas (de tu acta oficial), agrupadas por semestre
+  addPlainClosedItem(1, 'Cálculo I ', 3);
+  addPlainClosedItem(1, 'Física I', 5);
+  addPlainClosedItem(1, 'Álgebra Lineal', 5);
+  addPlainClosedItem(1, 'Química General', 5);
+  addPlainClosedItem(1, 'Diseño Técnico', 5);
+  addPlainClosedItem(1, 'Geoanalitica', 5);
+
+  addPlainClosedItem(2, 'Cálculo II', 5);
+  addPlainClosedItem(2, 'Física II', 4);
+  addPlainClosedItem(2, 'Estadística', 4);
+  addPlainClosedItem(2, 'Álgebra Vectorial', 5);
+  addPlainClosedItem(2, 'Idiomas I', 5);
+  addPlainClosedItem(2, 'Computación Científica I', 5);
+
+  addPlainClosedItem(3, 'Física III', 4);
+  addPlainClosedItem(3, 'Electricidad Básica', 5);
+  addPlainClosedItem(3, 'Idiomas II', 5);
+  addPlainClosedItem(3, 'Computación Científica II', 5);
+  addPlainClosedItem(3, 'Calculo III', 5);
+
+  // materia ya subida a cerradas (4to semestre)
+  const materiales = makeRow({ name:'8224 · Materiales Eléctricos', semester:4, p1:15,n1:100, p2:20,n2:100, ptp:5,ntp:100, plab:0,nlab:0 });
+  promoteRow(materiales);
+
+  // materias en curso
+  makeRow({ name:'8213 · Estructuras Ing. Eléctrica I', semester:3, manual:true, acumulado:25, nfinal:0 });
+
+  makeRow({ name:'8221 · Cálculo IV', semester:4, p1:15,n1:75, p2:20,n2:75, ptp:5,ntp:100, plab:0,nlab:0 });
+  makeRow({ name:'8222 · Física IV', semester:4, p1:10,n1:94.1, p2:20,n2:'', ptp:0,ntp:0, plab:10,nlab:98 });
+  makeRow({ name:'8223 · Estructuras Ing. Eléctrica II', semester:4, p1:15,n1:75, p2:20,n2:100, ptp:5,ntp:100, plab:0,nlab:0 });
+  makeRow({ name:'8225 · Electromagnetismo', semester:4, p1:10,n1:72.5, p2:20,n2:'', ptp:5,ntp:100, plab:5,nlab:100 });
+  makeRow({ name:'8226 · Circuitos Eléctricos I', semester:4, p1:10,n1:80, p2:20,n2:70, ptp:0,ntp:0, plab:10,nlab:98 });
+
+  document.getElementById('addRow').addEventListener('click', function(){
+    makeRow({ name:'Nueva materia', semester:4, p1:15,p2:20,ptp:5,plab:0, pending:['n1','n2','ntp','nlab','nfinal'] });
+    recalcAll();
+  });
+  document.getElementById('addBase').addEventListener('click', function(){
+    const sems = Object.keys(semFolders).map(Number);
+    const sem = sems.length ? Math.max(...sems)+1 : 1;
+    addPlainClosedItem(sem, 'Nueva materia', 5);
+    recalcAll();
+  });
+
+  // ---------- recalc ----------
+  function syncPending(el){
+    if (!el) return;
+    if (el.disabled || filled(el)) el.classList.remove('pending');
+    else el.classList.add('pending');
+  }
+
+  function syncDisabledAuto(tr){
+    const map = {p1:'n1', p2:'n2', ptp:'ntp', plab:'nlab'};
+    Object.keys(map).forEach(pf=>{
+      const pEl = tr.querySelector('[data-f="'+pf+'"]');
+      const nEl = tr.querySelector('[data-f="'+map[pf]+'"]');
+      if (!pEl || !nEl) return;
+      const w = num(pEl);
+      nEl.disabled = (w === 0);
+      if (w === 0) nEl.value = '';
+    });
+  }
+
+  function recalcRow(tr){
+    const manual = tr.dataset.mode === 'manual';
+    const comp = ['p1','n1','p2','n2','ptp','ntp','plab','nlab'];
+    comp.forEach(f=>{ tr.querySelector('[data-f="'+f+'"]').disabled = manual; });
+
+    const acumEl = tr.querySelector('[data-f="acumulado"]');
+    let acumulado;
+
+    if (manual){
+      acumEl.disabled = false;
+      acumulado = num(acumEl);
+    } else {
+      syncDisabledAuto(tr);
+      const p1=num(tr.querySelector('[data-f="p1"]')), n1=num(tr.querySelector('[data-f="n1"]'));
+      const p2=num(tr.querySelector('[data-f="p2"]')), n2=num(tr.querySelector('[data-f="n2"]'));
+      const ptp=num(tr.querySelector('[data-f="ptp"]')), ntp=num(tr.querySelector('[data-f="ntp"]'));
+      const plab=num(tr.querySelector('[data-f="plab"]')), nlab=num(tr.querySelector('[data-f="nlab"]'));
+      acumulado = (p1*n1 + p2*n2 + ptp*ntp + plab*nlab)/100;
+      acumEl.value = acumulado.toFixed(4);
+      acumEl.disabled = true;
+    }
+    ['n1','n2','ntp','nlab'].forEach(f=> syncPending(tr.querySelector('[data-f="'+f+'"]')));
+
+    const nfEl = tr.querySelector('[data-f="nfinal"]');
+    const exonerado = acumulado >= 37.6;
+    let total, nota, completed, badgeText;
+
+    if (exonerado){
+      nfEl.disabled = true;
+      total = acumulado; nota = 5; completed = true;
+      badgeText = 'Exonerada';
+    } else {
+      nfEl.disabled = false;
+      const nf = num(nfEl);
+      total = acumulado + FINAL_WEIGHT*nf/100;
+      nota = notaFromTotal(total);
+      completed = filled(nfEl);
+      badgeText = completed ? 'Completo' : 'Pendiente';
+    }
+    syncPending(nfEl);
+
+    tr.querySelector('[data-f="total-out"]').textContent = fmt(total,4);
+    const notaBadge = tr.querySelector('[data-f="nota-out"]');
+    if (completed){
+      notaBadge.textContent = nota;
+      notaBadge.className = 'nota-badge n'+nota;
+    } else {
+      notaBadge.textContent = '—';
+      notaBadge.className = 'nota-badge';
+    }
+    tr.querySelector('[data-f="badge"]').textContent = badgeText;
+
+    // metas
+    [2,3,4,5].forEach(n=>{
+      const chip = tr.querySelector('.meta-chip[data-nota="'+n+'"]');
+      const out = tr.querySelector('[data-f="m'+n+'"]');
+      chip.classList.remove('unreachable','achievable','secured','active','na');
+      if (exonerado){
+        out.textContent = '✓'; chip.classList.add('na'); chip.disabled = true; return;
+      }
+      const need = (THRESH[n] - acumulado) / FINAL_WEIGHT * 100;
+      chip.disabled = false;
+      if (need <= 0){
+        out.textContent = '✓'; chip.classList.add('secured'); chip.dataset.needed = '0';
+      } else if (need > 100){
+        out.textContent = fmt(need,4)+'%'; chip.classList.add('unreachable'); chip.dataset.needed = need.toFixed(4);
+      } else {
+        out.textContent = fmt(need,4)+'%'; chip.classList.add('achievable'); chip.dataset.needed = need.toFixed(4);
+      }
+      if (completed && nota === n) chip.classList.add('active');
+    });
+
+    // habilitar/deshabilitar "subir a cerradas"
+    tr.querySelector('[data-f="promoteBtn"]').disabled = !completed;
+
+    return { nota, completed };
+  }
+
+  function recalcAll(){
+    // promedios por semestre + total de cerradas
+    let baseSum = 0, baseCount = 0;
+    Object.values(semFolders).forEach(rec=>{
+      let s=0, c=0;
+      rec.itemsEl.querySelectorAll('.ci-grade').forEach(inp=>{ if (filled(inp)){ s+=num(inp); c++; } });
+      rec.avgEl.textContent = c>0 ? ('Promedio: '+fmt(s/c,4)) : 'Promedio: —';
+      baseSum += s; baseCount += c;
+    });
+
+    let projSum = baseSum, projCount = baseCount;
+    [...rowsBody.querySelectorAll('tr[data-mode]')].forEach(tr=>{
+      const res = recalcRow(tr);
+      if (res.completed){ projSum += res.nota; projCount += 1; }
+    });
+
+    const actualAvg = baseCount>0 ? baseSum/baseCount : 0;
+    const proyAvg = projCount>0 ? projSum/projCount : 0;
+
+    document.getElementById('actualAvg').textContent = fmt(actualAvg,4);
+    document.getElementById('proyAvg').textContent = fmt(proyAvg,4);
+    document.getElementById('actualBar').style.width = Math.min(100,(actualAvg/5)*100)+'%';
+    document.getElementById('proyBar').style.width = Math.min(100,(proyAvg/5)*100)+'%';
+
+    const delta = proyAvg - actualAvg;
+    const deltaEl = document.getElementById('deltaText');
+    if (projCount === baseCount){
+      deltaEl.textContent = 'Todavía no cargaste ninguna proyección — completá un final o tocá una meta en la tabla de abajo.';
+    } else {
+      const sign = delta>=0 ? '+' : '';
+      deltaEl.innerHTML = 'Con lo que llevás cargado, tu promedio ' + (delta>=0?'subiría':'bajaría') +
+        ' en <strong>' + sign + fmt(delta,4) + '</strong> puntos — ' + projCount + ' materias contempladas sobre ' + baseCount + ' cerradas.';
+    }
+  }
+
+  recalcAll();
+});
+</script>
+</body>
+</html>
